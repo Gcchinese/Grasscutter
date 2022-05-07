@@ -27,6 +27,7 @@ import emu.grasscutter.game.managers.SotSManager.SotSManager;
 import emu.grasscutter.game.props.ActionReason;
 import emu.grasscutter.game.props.EntityType;
 import emu.grasscutter.game.props.PlayerProperty;
+import emu.grasscutter.game.props.SceneType;
 import emu.grasscutter.game.shop.ShopLimit;
 import emu.grasscutter.game.managers.MapMarkManager.*;
 import emu.grasscutter.game.tower.TowerManager;
@@ -143,6 +144,7 @@ public class Player {
 		this.avatars = new AvatarStorage(this);
 		this.friendsList = new FriendsList(this);
 		this.mailHandler = new MailHandler(this);
+		this.towerManager = new TowerManager(this);
 		this.pos = new Position();
 		this.rotation = new Position();
 		this.properties = new HashMap<>();
@@ -189,7 +191,6 @@ public class Player {
 		this.nickname = "Traveler";
 		this.signature = "";
 		this.teamManager = new TeamManager(this);
-		this.towerManager = new TowerManager(this);
 		this.birthday = new PlayerBirthday();
 		this.setProperty(PlayerProperty.PROP_PLAYER_LEVEL, 1);
 		this.setProperty(PlayerProperty.PROP_IS_SPRING_AUTO_USE, 1);
@@ -1083,6 +1084,7 @@ public class Player {
 	@PostLoad
 	private void onLoad() {
 		this.getTeamManager().setPlayer(this);
+		this.getTowerManager().setPlayer(this);
 	}
 
 	public void save() {
@@ -1096,9 +1098,6 @@ public class Player {
 		}
 		if (this.getProfile().getUid() == 0) {
 			this.getProfile().syncWithCharacter(this);
-		}
-		if (this.getTowerManager() == null) {
-			this.towerManager = new TowerManager(this);
 		}
 
 		// Check if player object exists in server
@@ -1152,6 +1151,13 @@ public class Player {
 	}
 
 	public void onLogout() {
+		// stop stamina calculation
+		getMovementManager().resetTimer();
+
+		// force to leave the dungeon
+		if (getScene().getSceneType() == SceneType.SCENE_DUNGEON) {
+			this.getServer().getDungeonManager().exitDungeon(this);
+		}
 		// Leave world
 		if (this.getWorld() != null) {
 			this.getWorld().removePlayer(this);
