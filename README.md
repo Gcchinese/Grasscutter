@@ -5,6 +5,8 @@
 
 EN | [中文](README_zh-CN.md)
 
+This branch is made by members of the gcchina technical team and mainly repairs various functions that have not yet been realized
+
 **Attention:** We always welcome contributors to the project. Before adding your contribution, please carefully read our [Code of Conduct](https://github.com/Grasscutters/Grasscutter/blob/stable/CONTRIBUTING.md).
 
 ## Current features
@@ -157,3 +159,5 @@ There is a dummy user named "Server" in every player's friends list that you can
   Fiddler make sure it running on another port except 8888
 
 * Startup sequence: Mongodb > Grasscutter > Proxy daemon (mitmdump, fiddler, etc.) > Game
+
+
