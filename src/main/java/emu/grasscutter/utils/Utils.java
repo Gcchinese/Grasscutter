@@ -1,6 +1,7 @@
 package emu.grasscutter.utils;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.*;
@@ -8,14 +9,18 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Locale;
 
-import emu.grasscutter.Config;
 import emu.grasscutter.Grasscutter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import org.slf4j.Logger;
+
+import javax.annotation.Nullable;
 
 import static emu.grasscutter.utils.Language.translate;
 
@@ -171,12 +176,12 @@ public final class Utils {
 	 * Checks for required files and folders before startup.
 	 */
 	public static void startupCheck() {
-		Config config = Grasscutter.getConfig();
+		ConfigContainer config = Grasscutter.getConfig();
 		Logger logger = Grasscutter.getLogger();
 		boolean exit = false;
 
-		String resourcesFolder = config.RESOURCE_FOLDER;
-		String dataFolder = config.DATA_FOLDER;
+		String resourcesFolder = config.folderStructure.resources;
+		String dataFolder = config.folderStructure.data;
 
 		// Check for resources folder.
 		if(!fileExists(resourcesFolder)) {
@@ -252,14 +257,18 @@ public final class Utils {
 	 * @param stream The input stream.
 	 * @return The string.
 	 */
-	public static String readFromInputStream(InputStream stream) {
+	public static String readFromInputStream(@Nullable InputStream stream) {
+		if(stream == null) return "empty";
+		
 		StringBuilder stringBuilder = new StringBuilder();
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream,"UTF-8"))) {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
 			String line; while ((line = reader.readLine()) != null) {
 				stringBuilder.append(line);
 			} stream.close();
 		} catch (IOException e) {
 			Grasscutter.getLogger().warn("Failed to read from input stream.");
+		} catch (NullPointerException ignored) {
+			return "empty";
 		} return stringBuilder.toString();
 	}
 
@@ -298,5 +307,77 @@ public final class Utils {
 		}
 
 		return map;
+	}
+
+	/**
+	 * get language code from Locale
+	 */
+    public static String getLanguageCode(Locale locale) {
+        return String.format("%s-%s", locale.getLanguage(), locale.getCountry());
+    }
+
+	/**
+	 * Performs a linear interpolation using a table of fixed points to create an effective piecewise f(x) = y function.
+	 * @param x
+	 * @param xyArray Array of points in [[x0,y0], ... [xN, yN]] format
+	 * @return f(x) = y
+	 */
+	public static int lerp(int x, int[][] xyArray) {
+		try {
+			if (x <= xyArray[0][0]){  // Clamp to first point
+				return xyArray[0][1];
+			} else if (x >= xyArray[xyArray.length-1][0]) {  // Clamp to last point
+				return xyArray[xyArray.length-1][1];
+			}
+			// At this point we're guaranteed to have two lerp points, and pity be somewhere between them.
+			for (int i=0; i < xyArray.length-1; i++) {
+				if (x == xyArray[i+1][0]) {
+					return xyArray[i+1][1];
+				}
+				if (x < xyArray[i+1][0]) {
+					// We are between [i] and [i+1], interpolation time!
+					// Using floats would be slightly cleaner but we can just as easily use ints if we're careful with order of operations. 
+					int position = x - xyArray[i][0];
+					int fullDist = xyArray[i+1][0] - xyArray[i][0];
+					int prevValue = xyArray[i][1];
+					int fullDelta = xyArray[i+1][1] - prevValue;
+					return prevValue + ( (position * fullDelta) / fullDist );
+				}
+			}
+		} catch (IndexOutOfBoundsException e) {
+			Grasscutter.getLogger().error("Malformed lerp point array. Must be of form [[x0, y0], ..., [xN, yN]].");
+		}
+		return 0;
+	}
+
+	/**
+	 * Checks if an int is in an int[]
+	 * @param key int to look for
+	 * @param array int[] to look in
+	 * @return key in array
+	 */
+	public static boolean intInArray(int key, int[] array) {
+		for (int i : array) {
+			if (i == key) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Return a copy of minuend without any elements found in subtrahend.
+	 * @param minuend The array we want elements from
+	 * @param subtrahend The array whose elements we don't want
+	 * @return The array with only the elements we want, in the order that minuend had them
+	 */
+	public static int[] setSubtract(int[] minuend, int[] subtrahend) {
+		IntList temp = new IntArrayList();
+		for (int i : minuend) {
+			if (!intInArray(i, subtrahend)) {
+				temp.add(i);
+			}
+		}
+		return temp.toIntArray();
 	}
 }

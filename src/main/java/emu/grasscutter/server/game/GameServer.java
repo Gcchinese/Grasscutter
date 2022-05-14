@@ -14,7 +14,10 @@ import emu.grasscutter.game.managers.ChatManager;
 import emu.grasscutter.game.managers.InventoryManager;
 import emu.grasscutter.game.managers.MultiplayerManager;
 import emu.grasscutter.game.player.Player;
+import emu.grasscutter.game.quest.ServerQuestHandler;
+import emu.grasscutter.game.quest.handlers.QuestBaseHandler;
 import emu.grasscutter.game.shop.ShopManager;
+import emu.grasscutter.game.tower.TowerScheduleManager;
 import emu.grasscutter.game.world.World;
 import emu.grasscutter.net.packet.PacketHandler;
 import emu.grasscutter.net.proto.SocialDetailOuterClass.SocialDetail;
@@ -29,16 +32,15 @@ import java.net.InetSocketAddress;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static emu.grasscutter.utils.Language.translate;
+import static emu.grasscutter.Configuration.*;
 
 public final class GameServer extends KcpServer {
 	private final InetSocketAddress address;
 	private final GameServerPacketHandler packetHandler;
-
+	private final ServerQuestHandler questHandler;
+	
 	private final Map<Integer, Player> players;
 	private final Set<World> worlds;
 	
@@ -54,11 +56,12 @@ public final class GameServer extends KcpServer {
 	private final DropManager dropManager;
 
 	private final CombineManger combineManger;
+	private final TowerScheduleManager towerScheduleManager;
 
 	public GameServer() {
 		this(new InetSocketAddress(
-				Grasscutter.getConfig().getGameServerOptions().Ip, 
-				Grasscutter.getConfig().getGameServerOptions().Port
+				GAME_INFO.bindAddress,
+				GAME_INFO.bindPort
 		));
 	}
 	
@@ -68,6 +71,7 @@ public final class GameServer extends KcpServer {
 		this.setServerInitializer(new GameServerInitializer(this));
 		this.address = address;
 		this.packetHandler = new GameServerPacketHandler(PacketHandler.class);
+		this.questHandler = new ServerQuestHandler();
 		this.players = new ConcurrentHashMap<>();
 		this.worlds = Collections.synchronizedSet(new HashSet<>());
 		
@@ -82,13 +86,17 @@ public final class GameServer extends KcpServer {
 		this.dropManager = new DropManager(this);
 		this.expeditionManager = new ExpeditionManager(this);
 		this.combineManger = new CombineManger(this);
-		
+		this.towerScheduleManager = new TowerScheduleManager(this);
 		// Hook into shutdown event.
 		Runtime.getRuntime().addShutdownHook(new Thread(this::onServerShutdown));
 	}
 	
 	public GameServerPacketHandler getPacketHandler() {
 		return packetHandler;
+	}
+
+	public ServerQuestHandler getQuestHandler() {
+		return questHandler;
 	}
 
 	public Map<Integer, Player> getPlayers() {
@@ -137,6 +145,10 @@ public final class GameServer extends KcpServer {
 
 	public CombineManger getCombineManger(){
 		return this.combineManger;
+	}
+
+	public TowerScheduleManager getTowerScheduleManager() {
+		return towerScheduleManager;
 	}
 
 	public TaskMap getTaskMap() {
